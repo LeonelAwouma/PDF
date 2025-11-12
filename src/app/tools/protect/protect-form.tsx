@@ -67,28 +67,14 @@ export function ProtectForm() {
       const arrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
 
-      // Encrypt the PDF with the user's password
-      await pdfDoc.encrypt({
-        userPassword: password,
-        ownerPassword: password,
-        permissions: {},
-      });
-
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      
-      // Revoke old blob URL if it exists
-      if (resultUrl) {
-          URL.revokeObjectURL(resultUrl);
-      }
-
-      const url = URL.createObjectURL(blob);
-      setResultUrl(url);
-
+      // pdf-lib does not have a built-in encrypt function in this version.
+      // This part will not work as intended.
       toast({
-        title: 'PDF Protected!',
-        description: 'Your file has been encrypted and is ready for download.',
+        title: 'Feature Not Available',
+        description: 'PDF encryption is not supported in this version.',
+        variant: 'destructive',
       });
+
 
     } catch (error) {
       console.error('Error protecting PDF:', error);
