@@ -1,55 +1,61 @@
-// app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFDocument } from 'pdf-lib';
+import { createWriter, createReader, PermissionFlag } from 'muhammara';
 
 export const POST = async (req: NextRequest) => {
   try {
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const password = formData.get('password') as string | null;
+    const file = formData.get('file') as File;
+    const password = formData.get('password') as string;
 
-    if (!file || !password || password.trim() === '') {
+    if (!file || !password) {
       return NextResponse.json(
         { error: 'Fichier ou mot de passe manquant' },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    // On ne spécifie pas 'ignoreEncryption: true' pour que `isEncrypted` fonctionne
-    const pdfDoc = await PDFDocument.load(arrayBuffer, { 
-        // ignoreEncryption est nécessaire si on veut pouvoir charger un pdf déjà encrypté pour le déprotéger par exemple
-        // mais ici on veut juste vérifier s'il est déjà protégé.
-    });
+    const inputBuffer = Buffer.from(await file.arrayBuffer());
+    const outputChunks: Buffer[] = [];
 
-    if (pdfDoc.isEncrypted) {
-      return NextResponse.json(
-        { error: 'Ce PDF est déjà protégé par un mot de passe.' },
-        { status: 400 }
-      );
-    }
+    const outputStream = {
+      write: (chunk: Buffer) => outputChunks.push(chunk),
+      end: () => {},
+    };
 
-    // Appliquer le chiffrement et les permissions
-    pdfDoc.encrypt({
-      userPassword: password,
-      ownerPassword: password, // Utiliser le même mot de passe pour le propriétaire
-      permissions: {
-        printing: true, // Autoriser l'impression (toutes qualités)
-        modifying: false,
-        copying: false,
-        annotating: false,
-        fillingForms: false,
-        contentAccessibility: false,
-        documentAssembly: false,
-      },
-    });
+    const writer = createWriter(outputStream as any);
+    const reader = createReader(inputBuffer);
 
-    // Sauvegarder le document PDF chiffré
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const context = writer.getCopyingContext(reader);
+    context.execute();
 
-    // Renvoyer le PDF chiffré en pièce jointe
-    return new NextResponse(blob, {
+    const docContext = writer.getDocumentContext();
+
+    // PROTECTION
+    docContext.setPassword(password);
+    docContext.setOwnerPassword(password);
+
+    // RESTRICTIONS avec PermissionFlag
+    docContext.setPermissions(
+      PermissionFlag.Print |           // Impression (basse qualité)
+      PermissionFlag.ModifyDocument |  // Modification
+      PermissionFlag.Copy |            // Copie
+      PermissionFlag.Annotate,         // Annotations
+      false // Désactive tout
+    );
+
+    // Autoriser seulement l’impression basse qualité
+    docContext.setPermissions(
+      PermissionFlag.PrintLowResolution,
+      true
+    );
+
+    writer.end();
+
+    // Attendre la fin
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const encryptedPdf = Buffer.concat(outputChunks);
+
+    return new NextResponse(encryptedPdf, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -58,19 +64,10 @@ export const POST = async (req: NextRequest) => {
         )}"`,
       },
     });
-    
-  } catch (error: any)
-   {
-    console.error('API Error:', error);
-    // Si c'est une erreur connue de pdf-lib (ex: PDF corrompu)
-    if (error.name === 'EncryptedPDFError') {
-        return NextResponse.json(
-            { error: 'Ce PDF est déjà protégé et ne peut être modifié. Veuillez d\'abord le déverrouiller.' },
-            { status: 400 }
-        );
-    }
+  } catch (error: any) {
+    console.error('Erreur:', error);
     return NextResponse.json(
-      { error: 'Échec de la protection du PDF', details: error.message },
+      { error: 'Échec', details: error.message },
       { status: 500 }
     );
   }
