@@ -1,72 +1,62 @@
-// app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFDocument } from 'pdf-lib';
+import qpdf from 'node-qpdf';
+import { writeFile, unlink, readFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-export const POST = async (req: NextRequest) => {
+export async function POST(req: NextRequest) {
+  let inputPath: string | null = null;
+  let outputPath: string | null = null;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const password = formData.get('password') as string | null;
 
     if (!file || !password || password.trim() === '') {
-      return NextResponse.json(
-        { error: 'Fichier ou mot de passe manquant' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Fichier ou mot de passe manquant' }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const pdfDoc = await PDFDocument.load(arrayBuffer, { 
-        // Important: Ne pas ignorer le chiffrement pour pouvoir vérifier
-        ignoreEncryption: false 
-    });
+    // Créer fichiers temporaires
+    const bytes = await file.arrayBuffer();
+    inputPath = join(tmpdir(), `input_${Date.now()}.pdf`);
+    outputPath = join(tmpdir(), `output_${Date.now()}.pdf`);
 
-    if (pdfDoc.isEncrypted) {
-      return NextResponse.json(
-        { error: 'Ce PDF est déjà protégé.' },
-        { status: 400 }
-      );
-    }
+    await writeFile(inputPath, Buffer.from(bytes));
 
-    // Protection
-    pdfDoc.encrypt({
-      userPassword: password,
-      ownerPassword: password, // Important : Mettre le même pour éviter les confusions
-      permissions: {
-        printing: 'lowResolution',
-        modifying: false,
-        copying: false,
-        annotating: false,
-        fillingForms: false,
-        contentAccessibility: false,
-        documentAssembly: false,
+    // Chiffrer avec QPDF (AES-256, restrictions)
+    await qpdf.encrypt(inputPath, {
+      output: outputPath,
+      keyLength: 256,  // AES-256 (le plus sécurisé)
+      password: password,
+      restrictions: {
+        print: 'low',  // Impression basse résolution
+        modify: 'none',  // Pas de modification
+        extract: 'n',  // Pas d'extraction
+        annotate: 'n',  // Pas d'annotations
       },
     });
 
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    // Lire le fichier chiffré
+    const encryptedBytes = await readFile(outputPath);
+    const blob = new Blob([encryptedBytes], { type: 'application/pdf' });
 
     return new NextResponse(blob, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(
-          file.name.replace('.pdf', '') + '_PROTEGE.pdf'
-        )}"`,
+        'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_PROTEGE.pdf"`,
       },
     });
   } catch (error: any) {
-    console.error('API ERROR:', error);
-    // Gérer l'erreur si pdfDoc.encrypt n'est pas une fonction
-     if (error.message.includes('encrypt is not a function')) {
-         return NextResponse.json(
-             { error: 'La version de la bibliothèque PDF ne supporte pas le chiffrement côté serveur.', details: error.message },
-             { status: 500 }
-         );
-     }
+    console.error('Erreur chiffrement:', error);
     return NextResponse.json(
-      { error: 'Échec de la protection', details: error.message },
+      { error: 'Échec du chiffrement', details: error.message },
       { status: 500 }
     );
+  } finally {
+    // Nettoyage
+    if (inputPath) await unlink(inputPath).catch(console.error);
+    if (outputPath) await unlink(outputPath).catch(console.error);
   }
-};
+}
