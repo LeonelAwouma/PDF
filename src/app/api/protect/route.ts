@@ -14,17 +14,19 @@ export async function POST(req: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
+    // Charger le document en vérifiant s'il est déjà chiffré
     const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
     
     if (pdfDoc.isEncrypted) {
       return NextResponse.json({ error: 'This PDF is already protected.' }, { status: 400 });
     }
 
+    // Le chiffrement se fait dans les options de la méthode `save`
     const pdfBytes = await pdfDoc.save({
-        useObjectStreams: true,
+        useObjectStreams: true, // Optimise la taille du fichier
         encrypt: {
           userPassword: password,
-          ownerPassword: password,
+          ownerPassword: password, // Important : mot de passe propriétaire pour contrôler les permissions
         },
     });
 
