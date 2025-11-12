@@ -14,7 +14,7 @@ import { compressPdfClient, type CompressionLevel } from '@/lib/compress-pdf-cli
 type Result = {
   originalSize: number;
   compressedSize: number;
-  compressedPdfDataUri: string;
+  compressedPdfBlobUrl: string;
 };
 
 export function CompressForm() {
@@ -28,8 +28,8 @@ export function CompressForm() {
   useEffect(() => {
     // Nettoie l'URL de l'objet blob lorsque le composant est démonté ou que le résultat change
     return () => {
-      if (result?.compressedPdfDataUri && result.compressedPdfDataUri.startsWith('blob:')) {
-        URL.revokeObjectURL(result.compressedPdfDataUri);
+      if (result?.compressedPdfBlobUrl && result.compressedPdfBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(result.compressedPdfBlobUrl);
       }
     };
   }, [result]);
@@ -61,10 +61,16 @@ export function CompressForm() {
         setProgress(p);
       });
 
-      setResult(compressResult);
-       const reduction = compressResult.originalSize > 0
+      setResult({
+        originalSize: compressResult.originalSize,
+        compressedSize: compressResult.compressedSize,
+        compressedPdfBlobUrl: compressResult.compressedPdfBlobUrl,
+      });
+
+      const reduction = compressResult.originalSize > 0
         ? Math.round(((compressResult.originalSize - compressResult.compressedSize) / compressResult.originalSize) * 100)
         : 0;
+
       toast({
         title: 'Succès !',
         description: `Votre PDF a été compressé. Réduction de ${reduction}%.`,
@@ -117,7 +123,7 @@ export function CompressForm() {
             <Progress value={100 - reduction} className="h-2" />
           </div>
           <Button asChild size="lg" className="mt-4">
-            <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`}>
+            <a href={result.compressedPdfBlobUrl} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`}>
               <Download className="mr-2 h-5 w-5" />
               Télécharger le PDF compressé
             </a>

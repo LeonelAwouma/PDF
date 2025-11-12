@@ -3,50 +3,54 @@ import { PDFDocument } from 'pdf-lib';
 
 export type CompressionLevel = 'low' | 'medium' | 'high';
 
-interface CompressResult {
+export interface CompressResult {
   originalSize: number;
   compressedSize: number;
-  compressedPdfDataUri: string;
+  compressedPdfBlobUrl: string;
 }
 
 export async function compressPdfClient(
   file: File,
-  level: CompressionLevel, // Le niveau n'est pas utilisé ici, mais gardé pour la compatibilité de l'interface
+  level: CompressionLevel, // level is not used in this version but kept for interface consistency
   onProgress?: (percent: number) => void
 ): Promise<CompressResult> {
   const originalSize = file.size;
-
-  // Étape 1 : Charger le PDF
   onProgress?.(10);
+
+  // 1. Charger le PDF
   const arrayBuffer = await file.arrayBuffer();
-  const pdfDoc = await PDFDocument.load(arrayBuffer);
+  const pdfDoc = await PDFDocument.load(arrayBuffer, {
+    ignoreEncryption: true,
+    updateMetadata: false,
+  });
   onProgress?.(30);
 
-  // Étape 2 : Supprimer les métadonnées pour réduire la taille
+  // 2. Supprimer toutes les métadonnées
   pdfDoc.setTitle('');
   pdfDoc.setAuthor('');
   pdfDoc.setSubject('');
   pdfDoc.setKeywords([]);
   pdfDoc.setProducer('');
   pdfDoc.setCreator('');
-  onProgress?.(50);
+  
+  onProgress?.(60);
 
-  // Étape 3 : Sauvegarder le document en utilisant les "object streams".
-  // C'est la principale source de compression dans pdf-lib.
-  // Cela regroupe plusieurs objets en un seul flux, réduisant la taille globale.
+  // 4. Sauvegarder avec optimisation maximale
   const pdfBytes = await pdfDoc.save({
-    useObjectStreams: true,
+    useObjectStreams: true,     // Réduit la redondance
   });
+
   onProgress?.(90);
 
   const compressedSize = pdfBytes.byteLength;
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  const compressedPdfDataUri = URL.createObjectURL(blob);
+  const compressedPdfBlobUrl = URL.createObjectURL(blob);
+
   onProgress?.(100);
 
   return {
     originalSize,
     compressedSize,
-    compressedPdfDataUri,
+    compressedPdfBlobUrl,
   };
 }
