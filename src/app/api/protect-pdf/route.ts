@@ -16,19 +16,22 @@ export const POST = async (req: NextRequest) => {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { 
+        // Important: Ne pas ignorer le chiffrement pour pouvoir vérifier
+        ignoreEncryption: false 
+    });
 
     if (pdfDoc.isEncrypted) {
       return NextResponse.json(
-        { error: 'Ce PDF est déjà protégé' },
+        { error: 'Ce PDF est déjà protégé.' },
         { status: 400 }
       );
     }
 
-    // ENCRYPTION FONCTIONNE ICI
+    // Protection
     pdfDoc.encrypt({
       userPassword: password,
-      ownerPassword: password,
+      ownerPassword: password, // Important : Mettre le même pour éviter les confusions
       permissions: {
         printing: 'lowResolution',
         modifying: false,
@@ -54,6 +57,13 @@ export const POST = async (req: NextRequest) => {
     });
   } catch (error: any) {
     console.error('API ERROR:', error);
+    // Gérer l'erreur si pdfDoc.encrypt n'est pas une fonction
+     if (error.message.includes('encrypt is not a function')) {
+         return NextResponse.json(
+             { error: 'La version de la bibliothèque PDF ne supporte pas le chiffrement côté serveur.', details: error.message },
+             { status: 500 }
+         );
+     }
     return NextResponse.json(
       { error: 'Échec de la protection', details: error.message },
       { status: 500 }

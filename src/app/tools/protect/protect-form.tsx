@@ -17,7 +17,15 @@ export function ProtectForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const onDrop = (acceptedFiles: File[]) => {
+  const onDrop = (acceptedFiles: File[], fileRejections: any[]) => {
+    if (fileRejections.length > 0) {
+      toast({
+        title: 'Fichier invalide',
+        description: 'Veuillez sélectionner un fichier PDF de moins de 50 Mo.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const selected = acceptedFiles[0];
     if (selected) handleFileSelect(selected);
   };
@@ -31,14 +39,6 @@ export function ProtectForm() {
   });
 
   const handleFileSelect = (selectedFile: File) => {
-    if (selectedFile.size > MAX_FILE_SIZE) {
-      toast({
-        title: 'File is too large',
-        description: `The maximum file size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
-        variant: 'destructive',
-      });
-      return;
-    }
     setFile(selectedFile);
     setPassword('');
     setConfirmPassword('');
@@ -58,7 +58,14 @@ export function ProtectForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
   
-    if (!file || !password || password !== confirmPassword) return;
+    if (!file || !password || password !== confirmPassword) {
+      toast({
+        title: 'Informations manquantes',
+        description: 'Veuillez sélectionner un fichier et vérifier les mots de passe.',
+        variant: 'destructive'
+      });
+      return;
+    }
   
     setIsLoading(true);
   
@@ -67,45 +74,44 @@ export function ProtectForm() {
     formData.append('password', password);
   
     try {
-      console.log('Envoi API...');
-  
       const res = await fetch('/api/protect-pdf', {
         method: 'POST',
         body: formData,
       });
   
-      console.log('Réponse:', res.status, res.statusText, res.headers.get('content-type'));
-  
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text}`);
-      }
-  
-      // FORCER LE BLOB
-      const contentType = res.headers.get('content-type');
-      if (!contentType?.includes('application/pdf')) {
-        throw new Error(`Mauvais type: ${contentType}`);
+        // Essayer de parser le JSON d'erreur, sinon utiliser le texte brut
+        let errorMsg = `Erreur HTTP ${res.status}`;
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorData.details || 'Une erreur inconnue est survenue.';
+        } catch {
+          errorMsg = await res.text();
+        }
+        throw new Error(errorMsg);
       }
   
       const blob = await res.blob();
-      if (blob.size === 0) throw new Error('Blob vide');
-  
-      console.log('Blob reçu:', blob.size, 'octets');
+      if (blob.size === 0) {
+        throw new Error('Le serveur a retourné un fichier vide.');
+      }
   
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${file.name.replace('.pdf', '')}_PROTEGE.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
   
-      toast({ title: 'PDF Protégé !' });
+      toast({ title: 'PDF Protégé !', description: 'Le téléchargement a commencé.' });
       reset();
   
     } catch (error: any) {
       console.error('ERREUR CLIENT:', error);
       toast({
-        title: 'Échec',
+        title: 'Échec de la protection',
         description: error.message,
         variant: 'destructive',
       });
