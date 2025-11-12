@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Download, FileCheck2, UploadCloud, FileArchive } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
-import { clientCompressPdf, type CompressionLevel } from '@/lib/clientCompressPdf';
+import { compressPdfClient, type CompressionLevel } from '@/lib/compress-pdf-client';
 
 type Result = {
   originalSize: number;
@@ -57,9 +57,8 @@ export function CompressForm() {
     setProgress(0);
 
     try {
-      const compressResult = await clientCompressPdf(file, {
-        level: compressionLevel,
-        onProgress: (p) => setProgress(p),
+      const compressResult = await compressPdfClient(file, compressionLevel, (p) => {
+        setProgress(p);
       });
 
       setResult(compressResult);
