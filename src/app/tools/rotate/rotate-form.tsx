@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Download, UploadCloud, RotateCw, FileCheck2, Check } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
 
 type RotationAngle = 90 | 180 | 270;
 
@@ -131,6 +132,14 @@ export function RotateForm() {
     }
   };
 
+  const getRotationClass = (angle: RotationAngle) => {
+    return {
+      90: 'rotate-90',
+      180: 'rotate-180',
+      270: 'rotate-[270deg]',
+    }[angle];
+  }
+
   const FormContent = () => {
     if (isLoading && previews.length === 0) {
         return (
@@ -188,7 +197,15 @@ export function RotateForm() {
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
                         {previews.map((src, index) => (
                             <div key={index} className="relative cursor-pointer group" onClick={() => togglePageSelection(index)}>
-                                <img src={src} alt={`Page ${index + 1}`} className={`w-full border-4 rounded-md ${selectedPages.has(index) ? 'border-primary' : 'border-transparent'}`} />
+                                <img 
+                                    src={src} 
+                                    alt={`Page ${index + 1}`} 
+                                    className={cn(
+                                        'w-full border-4 rounded-md transition-transform duration-300',
+                                        selectedPages.has(index) ? 'border-primary' : 'border-transparent',
+                                        selectedPages.has(index) && getRotationClass(rotationAngle)
+                                    )}
+                                />
                                 <div className={`absolute inset-0 bg-primary/20 ${selectedPages.has(index) ? 'opacity-100' : 'opacity-0'} group-hover:opacity-50 transition-opacity`}></div>
                                 <div className="absolute top-1 right-1 bg-background/80 rounded-full text-xs w-6 h-6 flex items-center justify-center font-bold">{index + 1}</div>
                                 {selectedPages.has(index) && (
@@ -214,7 +231,7 @@ export function RotateForm() {
                     className="grid grid-cols-3 gap-4 mt-2"
                 >
                     {[90, 180, 270].map(angle => (
-                        <Label key={angle} htmlFor={`angle-${angle}`} className={`border rounded-md p-4 flex items-center justify-center text-center cursor-pointer ${rotationAngle === angle ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
+                        <Label key={angle} htmlFor={`angle-${angle}`} className={`border rounded-md p-4 flex flex-col items-center justify-center text-center cursor-pointer ${rotationAngle === angle ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                             <RadioGroupItem value={String(angle)} id={`angle-${angle}`} className="sr-only" />
                             <RotateCw className="w-6 h-6 mb-2" />
                             <span>{angle}°</span>
