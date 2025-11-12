@@ -57,7 +57,10 @@ const ocrAndFormatFlow = ai.defineFlow(
   },
   async input => {
     const {output: extractedText} = await ocrPrompt(input);
-    const {output: formattedText} = await formatPrompt(extractedText!);
+    if (!extractedText) {
+      throw new Error('Failed to extract text from the document.');
+    }
+    const {output: formattedText} = await formatPrompt(extractedText);
 
     // TODO: Use a PDF generation library to convert the markdown text into a PDF
     // For now, just return the formatted text as a data URI.
