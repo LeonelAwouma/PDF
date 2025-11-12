@@ -20,12 +20,11 @@ export const POST = async (req: NextRequest) => {
 
     if (pdfDoc.isEncrypted) {
       return NextResponse.json(
-        { error: 'Ce PDF est déjà protégé' },
+        { error: 'PDF déjà protégé' },
         { status: 400 }
       );
     }
 
-    // Protection
     pdfDoc.encrypt({
       userPassword: password,
       ownerPassword: password,
@@ -43,13 +42,14 @@ export const POST = async (req: NextRequest) => {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_PROTEGE.pdf"`,
+        'Content-Length': blob.size.toString(),
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(file.name.replace('.pdf', '') + '_PROTEGE.pdf')}"`,
       },
     });
   } catch (error: any) {
-    console.error('API Error:', error);
+    console.error('API ERROR:', error);
     return NextResponse.json(
-      { error: 'Échec de la protection', details: error.message },
+      { error: 'Échec interne', details: error.message },
       { status: 500 }
     );
   }

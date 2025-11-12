@@ -58,15 +58,7 @@ export function ProtectForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
   
-    if (!file) {
-      toast({ title: 'Aucun fichier sélectionné', variant: 'destructive' });
-      return;
-    }
-  
-    if (!password || password !== confirmPassword) {
-      toast({ title: 'Mots de passe non valides', variant: 'destructive' });
-      return;
-    }
+    if (!file || !password || password !== confirmPassword) return;
   
     setIsLoading(true);
   
@@ -75,61 +67,46 @@ export function ProtectForm() {
     formData.append('password', password);
   
     try {
-      console.log('Envoi API...', { file: file.name, size: file.size });
+      console.log('Envoi API...');
   
       const res = await fetch('/api/protect-pdf', {
         method: 'POST',
         body: formData,
       });
   
-      console.log('Réponse reçue:', res.status, res.ok);
+      console.log('Réponse:', res.status, res.statusText, res.headers.get('content-type'));
   
       if (!res.ok) {
-        let errorMsg = 'Erreur serveur';
-        try {
-          const text = await res.text();
-          errorMsg = text || `HTTP ${res.status}`;
-        } catch {
-          errorMsg = `HTTP ${res.status} (réponse vide)`;
-        }
-        throw new Error(errorMsg);
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
       }
   
-      // Lecture sécurisée du blob
-      let blob: Blob;
-      try {
-        blob = await res.blob();
-      } catch (err) {
-        throw new Error('Impossible de lire le PDF protégé');
+      // FORCER LE BLOB
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('application/pdf')) {
+        throw new Error(`Mauvais type: ${contentType}`);
       }
   
-      if (blob.size === 0) {
-        throw new Error('Fichier vide reçu');
-      }
+      const blob = await res.blob();
+      if (blob.size === 0) throw new Error('Blob vide');
+  
+      console.log('Blob reçu:', blob.size, 'octets');
   
       const url = URL.createObjectURL(blob);
-  
-      // Téléchargement direct
       const a = document.createElement('a');
       a.href = url;
       a.download = `${file.name.replace('.pdf', '')}_PROTEGE.pdf`;
-      document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
       URL.revokeObjectURL(url);
   
-      toast({
-        title: 'PDF Protégé !',
-        description: 'Téléchargement lancé. Mot de passe requis à l’ouverture.',
-      });
-  
+      toast({ title: 'PDF Protégé !' });
       reset();
   
     } catch (error: any) {
-      console.error('Erreur dans handleSubmit:', error);
+      console.error('ERREUR CLIENT:', error);
       toast({
-        title: 'Échec de la protection',
-        description: error.message || 'Une erreur inconnue est survenue.',
+        title: 'Échec',
+        description: error.message,
         variant: 'destructive',
       });
     } finally {
@@ -218,5 +195,3 @@ export function ProtectForm() {
     </form>
   );
 }
-
-    
