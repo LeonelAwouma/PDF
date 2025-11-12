@@ -48,31 +48,18 @@ export async function clientCompressPdf(
   onProgress?.(20);
 
   // -----------------------------------------------------------------
-  // 2. Downsample des images (la partie la plus efficace)
+  // 2. Traitement des images (simplifié pour la stabilité)
   // -----------------------------------------------------------------
-  const imageQuality = {
-    low: 0.75, // Qualité JPG (0 à 1)
-    medium: 0.5,
-    high: 0.25,
-  }[level];
+  // L'API de `pdf-lib` pour manipuler directement les images existantes est complexe
+  // et peut facilement corrompre le PDF. La fonction `getXObjects` n'existe pas.
+  // Pour assurer la stabilité, nous allons sauter l'étape de recompression d'image
+  // et nous concentrer sur l'optimisation de la structure du document.
 
   const pages = pdfDoc.getPages();
-  let processedImages = 0;
-  
-  // On ne peut pas facilement compter le nombre total d'images
-  // à l'avance sans une boucle. On va donc simuler la progression.
   const totalPages = pages.length;
 
   for (let i = 0; i < totalPages; i++) {
-    const page = pages[i];
-    const images = page.getXObjects(); // Utiliser les XObjects pour trouver les images
-    
-    // Cette partie est complexe car pdf-lib ne permet pas de remplacer facilement une image
-    // par une version compressée en gardant la même position. 
-    // La méthode de reconstruction est risquée et complexe.
-    // L'approche la plus sûre reste de reconstruire le doc, mais c'est ce qui ne marchait pas.
-    // Pour l'instant, on se contentera de la sauvegarde optimisée.
-    
+    // Simule une progression pendant que nous parcourons les pages
     const progress = 20 + Math.round(((i + 1) / totalPages) * 60);
     onProgress?.(progress);
   }
@@ -87,8 +74,6 @@ export async function clientCompressPdf(
 
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   
-  // Utiliser un Data URI est moins performant pour les gros fichiers que createObjectURL
-  // mais plus simple à gérer pour le téléchargement.
   const compressedPdfDataUri = await new Promise<string>(resolve => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
