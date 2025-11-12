@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -64,7 +65,7 @@ export function ProtectForm() {
     }
   
     if (!password || password !== confirmPassword) {
-      toast({ title: 'Mots de passe non valides', variant: 'destructive' });
+      toast({ title: 'Mots de passe non valides', description: 'Les mots de passe ne correspondent pas ou sont vides.', variant: 'destructive' });
       return;
     }
 
@@ -87,7 +88,7 @@ export function ProtectForm() {
           errorMsg = errorData.error || errorData.details || 'Une erreur inconnue est survenue.';
         } catch {
           // Si le corps de la réponse n'est pas du JSON, utiliser le texte brut
-          errorMsg = await res.text();
+           errorMsg = await res.text();
         }
         throw new Error(errorMsg);
       }
