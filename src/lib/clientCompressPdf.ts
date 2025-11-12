@@ -21,19 +21,17 @@ export async function clientCompressPdf(
   compressedSize: number;
   compressedPdfDataUri: string;
 }> {
-  const originalArrayBuffer = await file.arrayBuffer();
-  const originalSize = originalArrayBuffer.byteLength;
-
+  const originalSize = file.size;
   onProgress?.(5);
-  // Ignorer les erreurs pour les PDF "malades"
-  const pdfDoc = await PDFDocument.load(originalArrayBuffer, { 
-    ignoreEncryption: true, 
-  });
-  onProgress?.(15);
-  
-  // -----------------------------------------------------------------
-  // 1. Suppression des métadonnées (toujours utile)
-  // -----------------------------------------------------------------
+
+  // Étape 1 : Charger le PDF
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer, { 
+    ignoreEncryption: true,
+   });
+  onProgress?.(20);
+
+  // Étape 2 : Supprimer les métadonnées
   pdfDoc.setTitle('');
   pdfDoc.setAuthor('');
   pdfDoc.setSubject('');
@@ -41,39 +39,21 @@ export async function clientCompressPdf(
   pdfDoc.setProducer('');
   pdfDoc.setCreator('');
   
-  onProgress?.(20);
-  
-  // -----------------------------------------------------------------
-  // 2. Traitement des pages et des images (simplifié)
-  // -----------------------------------------------------------------
-  // L'objectif est de reconstruire le document pour nettoyer sa structure,
-  // ce qui est plus fiable que de manipuler directement les images.
-  const pages = pdfDoc.getPages();
-  const totalPages = pages.length;
+  onProgress?.(30);
 
-  for (let i = 0; i < totalPages; i++) {
-    // Simule une progression pendant que nous parcourons les pages
-    const progress = 20 + Math.round(((i + 1) / totalPages) * 60);
-    onProgress?.(progress);
-    // Aucune action complexe sur les images ici pour garantir la stabilité
-  }
-  
-  // -----------------------------------------------------------------
-  // 3. Nettoyage final + sauvegarde
-  // -----------------------------------------------------------------
-  onProgress?.(90);
-  // useObjectStreams est la clé pour réduire la taille en groupant les objets.
+  // Étape 3 : Sauvegarder avec compression des flux d'objets
+  // C'est la méthode la plus fiable avec pdf-lib pour réduire la taille
+  // sans risquer de corrompre le fichier en manipulant les images.
   const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
   onProgress?.(100);
 
+  const compressedSize = pdfBytes.byteLength;
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  
-  // Utilise createObjectURL pour la performance et pour éviter les limites de taille des data URI
-  const compressedPdfUrl = URL.createObjectURL(blob);
+  const compressedPdfDataUri = URL.createObjectURL(blob);
 
   return {
     originalSize,
-    compressedSize: pdfBytes.byteLength,
-    compressedPdfDataUri: compressedPdfUrl,
+    compressedSize,
+    compressedPdfDataUri,
   };
 }
