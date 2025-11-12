@@ -28,7 +28,7 @@ export function CompressForm() {
   useEffect(() => {
     // Nettoie l'URL de l'objet blob lorsque le composant est démonté ou que le résultat change
     return () => {
-      if (result?.compressedPdfDataUri) {
+      if (result?.compressedPdfDataUri && result.compressedPdfDataUri.startsWith('blob:')) {
         URL.revokeObjectURL(result.compressedPdfDataUri);
       }
     };
@@ -74,7 +74,7 @@ export function CompressForm() {
       console.error('Error compressing PDF:', error);
       toast({
         title: 'Erreur de compression',
-        description: error.message || 'Une erreur est survenue lors de la compression du PDF.',
+        description: "Impossible de compresser le PDF. Essayez avec un autre fichier.",
         variant: 'destructive',
       });
     } finally {
