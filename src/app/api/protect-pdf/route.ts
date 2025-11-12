@@ -1,6 +1,6 @@
 // app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFDocument, PermissionFlag } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -17,7 +17,10 @@ export const POST = async (req: NextRequest) => {
 
     const arrayBuffer = await file.arrayBuffer();
     // On ne spécifie pas 'ignoreEncryption: true' pour que `isEncrypted` fonctionne
-    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { 
+        // ignoreEncryption est nécessaire si on veut pouvoir charger un pdf déjà encrypté pour le déprotéger par exemple
+        // mais ici on veut juste vérifier s'il est déjà protégé.
+    });
 
     if (pdfDoc.isEncrypted) {
       return NextResponse.json(
@@ -31,9 +34,7 @@ export const POST = async (req: NextRequest) => {
       userPassword: password,
       ownerPassword: password, // Utiliser le même mot de passe pour le propriétaire
       permissions: {
-        // Autoriser l'impression en basse résolution
-        printing: PermissionFlag.LOW_QUALITY,
-        // Interdire tout le reste
+        printing: true, // Autoriser l'impression (toutes qualités)
         modifying: false,
         copying: false,
         annotating: false,
@@ -58,8 +59,16 @@ export const POST = async (req: NextRequest) => {
       },
     });
     
-  } catch (error: any) {
+  } catch (error: any)
+   {
     console.error('API Error:', error);
+    // Si c'est une erreur connue de pdf-lib (ex: PDF corrompu)
+    if (error.name === 'EncryptedPDFError') {
+        return NextResponse.json(
+            { error: 'Ce PDF est déjà protégé et ne peut être modifié. Veuillez d\'abord le déverrouiller.' },
+            { status: 400 }
+        );
+    }
     return NextResponse.json(
       { error: 'Échec de la protection du PDF', details: error.message },
       { status: 500 }
