@@ -1,8 +1,7 @@
-
 // app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-// Chargement dynamique côté serveur uniquement
+// Chargement dynamique côté serveur
 const { createWriter, createReader, PermissionFlag } = require('muhammara');
 
 export const POST = async (req: NextRequest) => {
@@ -18,24 +17,45 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const inputBuffer = Buffer.from(await file.arrayBuffer());
-    const outputChunks: Buffer[] = [];
+    // LIRE LE FICHIER EN BUFFER
+    const arrayBuffer = await file.arrayBuffer();
+    const inputBuffer = Buffer.from(arrayBuffer);
 
-    // Stream personnalisé
+    // VÉRIFIER LA SIGNATURE PDF
+    if (!inputBuffer.slice(0, 4).equals(Buffer.from('%PDF'))) {
+      return NextResponse.json(
+        { error: 'Fichier invalide : ce n’est pas un PDF' },
+        { status: 400 }
+      );
+    }
+
+    // FLUX DE SORTIE
+    const outputChunks: Buffer[] = [];
     const outputStream = {
       write: (chunk: Buffer) => outputChunks.push(chunk),
       end: () => {},
     };
 
+    // CRÉER LE WRITER
     const writer = createWriter(outputStream as any);
-    const reader = createReader(inputBuffer);
 
+    // LIRE LE PDF D’ENTRÉE
+    let reader;
+    try {
+      reader = createReader(inputBuffer);
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: 'PDF corrompu ou non lisible', details: err.message },
+        { status: 400 }
+      );
+    }
+
+    // COPIER LE CONTENU
     const context = writer.getCopyingContext(reader);
     context.execute();
 
-    const docContext = writer.getDocumentContext();
-
     // PROTECTION
+    const docContext = writer.getDocumentContext();
     docContext.setPassword(password);
     docContext.setOwnerPassword(password);
 
@@ -51,9 +71,16 @@ export const POST = async (req: NextRequest) => {
 
     writer.end();
 
-    // Attendre la fin
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // ATTENDRE LA FIN
+    await new Promise((resolve) => setTimeout(resolve, 200));
     const encryptedPdf = Buffer.concat(outputChunks);
+
+    if (encryptedPdf.length === 0) {
+      return NextResponse.json(
+        { error: 'PDF chiffré vide' },
+        { status: 500 }
+      );
+    }
 
     return new NextResponse(encryptedPdf, {
       status: 200,
@@ -65,9 +92,9 @@ export const POST = async (req: NextRequest) => {
       },
     });
   } catch (error: any) {
-    console.error('Erreur:', error);
+    console.error('Erreur API:', error);
     return NextResponse.json(
-      { error: 'Échec', details: error.message },
+      { error: 'Échec du chiffrement', details: error.message },
       { status: 500 }
     );
   }
