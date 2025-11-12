@@ -43,43 +43,36 @@ export function CompressForm() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!file) {
-      toast({
-        title: 'Aucun fichier sélectionné',
-        description: 'Veuillez télécharger un fichier PDF à compresser.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!file) return;
 
     setIsLoading(true);
-    setResult(null);
     setProgress(0);
 
     try {
-      const compressResult = await compressPdfClient(file, compressionLevel, (p) => {
-        setProgress(p);
-      });
+      const result = await compressPdfClient(file, compressionLevel, (p) => setProgress(p));
 
-      setResult({
-        originalSize: compressResult.originalSize,
-        compressedSize: compressResult.compressedSize,
-        compressedPdfBlobUrl: compressResult.compressedPdfBlobUrl,
-      });
+      // Nettoyer l’ancien blob
+      if (result.compressedPdfBlobUrl) {
+        setResult({
+          originalSize: result.originalSize,
+          compressedSize: result.compressedSize,
+          compressedPdfBlobUrl: result.compressedPdfBlobUrl,
+        });
+      }
 
-      const reduction = compressResult.originalSize > 0
-        ? Math.round(((compressResult.originalSize - compressResult.compressedSize) / compressResult.originalSize) * 100)
-        : 0;
+      const reduction = Math.round(
+        ((result.originalSize - result.compressedSize) / result.originalSize) * 100
+      );
 
       toast({
-        title: 'Succès !',
-        description: `Votre PDF a été compressé. Réduction de ${reduction}%.`,
+        title: 'Compression réussie',
+        description: `Réduit de ${reduction}%`,
       });
     } catch (error: any) {
-      console.error('Error compressing PDF:', error);
+      console.error('Compression échouée:', error);
       toast({
-        title: 'Erreur de compression',
-        description: "Impossible de compresser le PDF. Essayez avec un autre fichier.",
+        title: 'Erreur',
+        description: 'Impossible de compresser ce PDF.',
         variant: 'destructive',
       });
     } finally {
