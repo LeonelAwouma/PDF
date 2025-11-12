@@ -10,12 +10,6 @@ import { splitPdf } from '@/ai/flows/split-pdf';
 import { Loader2, Download, FileCheck2, UploadCloud, Scissors, FileText, X, Plus } from 'lucide-react';
 import type { SplitPdfOutput } from '@/ai/flows/split-pdf';
 import { Switch } from '@/components/ui/switch';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-
-// Configure the worker for pdfjs-dist
-if (typeof window !== 'undefined') {
-  GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs`;
-}
 
 type Range = { from: string; to: string };
 
@@ -47,6 +41,10 @@ export function SplitForm() {
 
   const generatePreviews = useCallback(async (pdfFile: File) => {
     setIsLoading(true);
+    // Dynamically import pdfjs-dist only on the client side
+    const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+    GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs`;
+
     const fileReader = new FileReader();
     fileReader.onload = async function() {
         const typedarray = new Uint8Array(this.result as ArrayBuffer);
