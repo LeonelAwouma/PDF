@@ -191,7 +191,7 @@ export function ProtectForm() {
             disabled={!password || password !== confirmPassword}
           >
             <Lock className="mr-2 h-5 w-5" />
-            Protéger le PDF
+            Protéger et Télécharger
           </Button>
         </div>
       )}
