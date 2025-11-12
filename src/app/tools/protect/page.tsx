@@ -14,8 +14,7 @@ export default function ProtectPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-bold">Protect PDF</CardTitle>
           <CardDescription className="text-md">
-            Add a password and encrypt your PDF file to secure it. The
-            process is done entirely in your browser for privacy.
+            Add a password to encrypt and secure your PDF file.
           </CardDescription>
         </CardHeader>
         <CardContent>
