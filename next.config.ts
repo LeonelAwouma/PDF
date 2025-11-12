@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    serverComponentsExternalPackages: ['muhammara'],
+    serverComponentsExternalPackages: [],
   },
 };
 
