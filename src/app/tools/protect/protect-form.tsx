@@ -57,45 +57,46 @@ export function ProtectForm() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
-    if (!file || !password || password !== confirmPassword) {
-      toast({
-        title: 'Informations manquantes',
-        description: 'Veuillez sélectionner un fichier et vérifier les mots de passe.',
-        variant: 'destructive'
-      });
+
+    if (!file) {
+      toast({ title: 'Aucun fichier sélectionné', variant: 'destructive' });
       return;
     }
   
+    if (!password || password !== confirmPassword) {
+      toast({ title: 'Mots de passe non valides', variant: 'destructive' });
+      return;
+    }
+
     setIsLoading(true);
-  
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('password', password);
-  
+
     try {
       const res = await fetch('/api/protect-pdf', {
         method: 'POST',
         body: formData,
       });
-  
+
       if (!res.ok) {
-        // Essayer de parser le JSON d'erreur, sinon utiliser le texte brut
         let errorMsg = `Erreur HTTP ${res.status}`;
         try {
           const errorData = await res.json();
           errorMsg = errorData.error || errorData.details || 'Une erreur inconnue est survenue.';
         } catch {
+          // Si le corps de la réponse n'est pas du JSON, utiliser le texte brut
           errorMsg = await res.text();
         }
         throw new Error(errorMsg);
       }
-  
+
       const blob = await res.blob();
       if (blob.size === 0) {
         throw new Error('Le serveur a retourné un fichier vide.');
       }
-  
+      
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -104,10 +105,10 @@ export function ProtectForm() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-  
+
       toast({ title: 'PDF Protégé !', description: 'Le téléchargement a commencé.' });
       reset();
-  
+
     } catch (error: any) {
       console.error('ERREUR CLIENT:', error);
       toast({
