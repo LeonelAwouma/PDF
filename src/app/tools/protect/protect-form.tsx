@@ -59,12 +59,12 @@ export function ProtectForm() {
     e.preventDefault();
   
     if (!file) {
-      toast({ title: 'Aucun fichier', variant: 'destructive' });
+      toast({ title: 'Aucun fichier sélectionné', variant: 'destructive' });
       return;
     }
   
     if (!password || password !== confirmPassword) {
-      toast({ title: 'Mots de passe invalides', variant: 'destructive' });
+      toast({ title: 'Mots de passe non valides', variant: 'destructive' });
       return;
     }
   
@@ -75,29 +75,38 @@ export function ProtectForm() {
     formData.append('password', password);
   
     try {
-      console.log('Envoi vers /api/protect-pdf...', { fileName: file.name, passwordLength: password.length });
+      console.log('Envoi API...', { file: file.name, size: file.size });
   
-      const res = await fetch('/api/protect', {
+      const res = await fetch('/api/protect-pdf', {
         method: 'POST',
         body: formData,
       });
   
-      // Debug réponse
-      console.log('Réponse API:', res.status, res.statusText);
+      console.log('Réponse reçue:', res.status, res.ok);
   
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Erreur API:', errorText);
-        // Try to parse as JSON, but fall back to text
+        let errorMsg = 'Erreur serveur';
         try {
-            const errorJson = JSON.parse(errorText);
-            throw new Error(errorJson.error || `API error: ${res.status}`);
+          const text = await res.text();
+          errorMsg = text || `HTTP ${res.status}`;
         } catch {
-            throw new Error(`API error: ${res.status} - ${errorText}`);
+          errorMsg = `HTTP ${res.status} (réponse vide)`;
         }
+        throw new Error(errorMsg);
       }
   
-      const blob = await res.blob();
+      // Lecture sécurisée du blob
+      let blob: Blob;
+      try {
+        blob = await res.blob();
+      } catch (err) {
+        throw new Error('Impossible de lire le PDF protégé');
+      }
+  
+      if (blob.size === 0) {
+        throw new Error('Fichier vide reçu');
+      }
+  
       const url = URL.createObjectURL(blob);
   
       // Téléchargement direct
@@ -111,17 +120,16 @@ export function ProtectForm() {
   
       toast({
         title: 'PDF Protégé !',
-        description: 'Votre fichier sécurisé est en cours de téléchargement.',
+        description: 'Téléchargement lancé. Mot de passe requis à l’ouverture.',
       });
   
-      // Reset
       reset();
   
     } catch (error: any) {
       console.error('Erreur dans handleSubmit:', error);
       toast({
-        title: 'Échec',
-        description: error.message || 'Une erreur est survenue.',
+        title: 'Échec de la protection',
+        description: error.message || 'Une erreur inconnue est survenue.',
         variant: 'destructive',
       });
     } finally {

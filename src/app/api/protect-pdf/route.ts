@@ -2,23 +2,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument } from 'pdf-lib';
 
-export async function POST(req: NextRequest) {
+export const POST = async (req: NextRequest) => {
   try {
     const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const password = formData.get('password') as string;
+    const file = formData.get('file') as File | null;
+    const password = formData.get('password') as string | null;
 
-    if (!file || !password) {
-      return NextResponse.json({ error: 'Missing file or password' }, { status: 400 });
+    if (!file || !password || password.trim() === '') {
+      return NextResponse.json(
+        { error: 'Fichier ou mot de passe manquant' },
+        { status: 400 }
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
 
     if (pdfDoc.isEncrypted) {
-      return NextResponse.json({ error: 'Already encrypted' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Ce PDF est déjà protégé' },
+        { status: 400 }
+      );
     }
 
+    // Protection
     pdfDoc.encrypt({
       userPassword: password,
       ownerPassword: password,
@@ -41,6 +48,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Échec de la protection', details: error.message },
+      { status: 500 }
+    );
   }
-}
+};
