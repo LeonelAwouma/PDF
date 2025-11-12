@@ -28,8 +28,6 @@ export async function compressPdfClient(
   pdfDoc.setKeywords([]);
   pdfDoc.setProducer('');
   pdfDoc.setCreator('');
-  pdfDoc.setCreationDate(undefined);
-  pdfDoc.setModificationDate(undefined);
   onProgress?.(30);
 
   // Étape 3 : Paramètres de compression (non utilisé directement pour les images ici)
