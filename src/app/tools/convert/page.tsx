@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ToolPlaceholderPage } from '@/components/tool-placeholder-page';
+import { ImageToPdfForm } from './image-to-pdf-form';
 
 export default function ConvertPage() {
   const [activeTab, setActiveTab] = useState('image-to-pdf');
@@ -26,10 +27,7 @@ export default function ConvertPage() {
             </TabsList>
             <TabsContent value="image-to-pdf">
                <div className="pt-6">
-                <ToolPlaceholderPage
-                    title="Image to PDF Converter"
-                    description="This tool will allow you to convert JPG, PNG, and other image formats into a PDF document. Coming soon!"
-                />
+                <ImageToPdfForm />
                </div>
             </TabsContent>
             <TabsContent value="pdf-to-image">
