@@ -58,46 +58,66 @@ export function ProtectForm() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!file) {
-      toast({ title: 'Aucun fichier sélectionné', variant: 'destructive' });
+  
+    if (!file || !password || password !== confirmPassword) {
+      toast({ title: 'Données invalides', variant: 'destructive' });
       return;
     }
   
-    if (!password || password !== confirmPassword) {
-      toast({ title: 'Mots de passe non valides', description: 'Les mots de passe ne correspondent pas ou sont vides.', variant: 'destructive' });
-      return;
-    }
-
     setIsLoading(true);
-
+  
     const formData = new FormData();
     formData.append('file', file);
     formData.append('password', password);
-
+  
     try {
+      console.log('Envoi vers /api/protect-pdf...', {
+        fileName: file.name,
+        fileSize: file.size,
+        passwordLength: password.length,
+      });
+  
       const res = await fetch('/api/protect-pdf', {
         method: 'POST',
         body: formData,
       });
-
+  
+      console.log('Réponse reçue:', {
+        status: res.status,
+        ok: res.ok,
+        contentType: res.headers.get('content-type'),
+      });
+  
+      // Gestion des erreurs
       if (!res.ok) {
-        let errorMsg = `Erreur HTTP ${res.status}`;
+        let errorMessage = 'Erreur inconnue';
         try {
-          const errorData = await res.json();
-          errorMsg = errorData.error || errorData.details || 'Une erreur inconnue est survenue.';
-        } catch {
-          // Si le corps de la réponse n'est pas du JSON, utiliser le texte brut
-           errorMsg = await res.text();
+          const text = await res.text();
+          errorMessage = text.trim() || `HTTP ${res.status}`;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status} (réponse illisible)`;
         }
-        throw new Error(errorMsg);
+        console.error('Erreur API:', errorMessage);
+        throw new Error(errorMessage);
       }
-
+  
+      // Vérifier le type
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/pdf')) {
+        const text = await res.text();
+        console.error('Mauvais type:', contentType, text);
+        throw new Error(`Type invalide: ${contentType}`);
+      }
+  
+      // Lire le blob
       const blob = await res.blob();
       if (blob.size === 0) {
-        throw new Error('Le serveur a retourné un fichier vide.');
+        throw new Error('Fichier vide reçu');
       }
-      
+  
+      console.log('PDF protégé reçu:', blob.size, 'octets');
+  
+      // Téléchargement direct
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -106,15 +126,19 @@ export function ProtectForm() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      toast({ title: 'PDF Protégé !', description: 'Le téléchargement a commencé.' });
+  
+      toast({
+        title: 'PDF Protégé !',
+        description: 'Le fichier a été téléchargé avec succès.',
+      });
+  
       reset();
-
+  
     } catch (error: any) {
       console.error('ERREUR CLIENT:', error);
       toast({
         title: 'Échec de la protection',
-        description: error.message,
+        description: error.message || 'Une erreur est survenue.',
         variant: 'destructive',
       });
     } finally {
