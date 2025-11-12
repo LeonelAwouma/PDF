@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, UploadCloud, RotateCw, FileCheck2, Check } from 'lucide-react';
+import { Loader2, Download, UploadCloud, RotateCw, FileCheck2, Check, Undo2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 
-type RotationAngle = 90 | 180 | 270;
+type RotationAngle = 0 | 90 | 180 | 270;
 
 export function RotateForm() {
   const [file, setFile] = useState<File | null>(null);
@@ -101,8 +101,12 @@ export function RotateForm() {
       
       selectedPages.forEach(pageIndex => {
         const page = pdfDoc.getPage(pageIndex);
-        const currentRotation = page.getRotation().angle;
-        page.setRotation(degrees(currentRotation + rotationAngle));
+        if (rotationAngle === 0) {
+          page.setRotation(degrees(0));
+        } else {
+          const currentRotation = page.getRotation().angle;
+          page.setRotation(degrees(currentRotation + rotationAngle));
+        }
       });
       
       const pdfBytes = await pdfDoc.save();
@@ -133,12 +137,20 @@ export function RotateForm() {
   };
 
   const getRotationClass = (angle: RotationAngle) => {
+    if (angle === 0) return '';
     return {
       90: 'rotate-90',
       180: 'rotate-180',
       270: 'rotate-[270deg]',
     }[angle];
   }
+  
+  const rotationOptions: { angle: RotationAngle; icon: React.ReactNode }[] = [
+    { angle: 0, icon: <Undo2 className="w-6 h-6 mb-2" /> },
+    { angle: 90, icon: <RotateCw className="w-6 h-6 mb-2" /> },
+    { angle: 180, icon: <RotateCw className="w-6 h-6 mb-2" /> },
+    { angle: 270, icon: <RotateCw className="w-6 h-6 mb-2" /> },
+  ];
 
   const FormContent = () => {
     if (isLoading && previews.length === 0) {
@@ -228,13 +240,13 @@ export function RotateForm() {
                <RadioGroup
                     value={String(rotationAngle)}
                     onValueChange={(value) => setRotationAngle(Number(value) as RotationAngle)}
-                    className="grid grid-cols-3 gap-4 mt-2"
+                    className="grid grid-cols-4 gap-4 mt-2"
                 >
-                    {[90, 180, 270].map(angle => (
-                        <Label key={angle} htmlFor={`angle-${angle}`} className={`border rounded-md p-4 flex flex-col items-center justify-center text-center cursor-pointer ${rotationAngle === angle ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
+                    {rotationOptions.map(({angle, icon}) => (
+                        <Label key={angle} htmlFor={`angle-${angle}`} className={cn('border rounded-md p-4 flex flex-col items-center justify-center text-center cursor-pointer', rotationAngle === angle ? 'border-primary ring-2 ring-primary' : 'border-input')}>
                             <RadioGroupItem value={String(angle)} id={`angle-${angle}`} className="sr-only" />
-                            <RotateCw className="w-6 h-6 mb-2" />
-                            <span>{angle}°</span>
+                            {icon}
+                            <span>{angle === 0 ? 'Reset' : `${angle}°`}</span>
                         </Label>
                     ))}
               </RadioGroup>
