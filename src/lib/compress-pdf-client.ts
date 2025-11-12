@@ -11,57 +11,38 @@ interface CompressResult {
 
 export async function compressPdfClient(
   file: File,
-  level: CompressionLevel,
+  level: CompressionLevel, // Le niveau n'est pas utilisé ici, mais gardé pour la compatibilité de l'interface
   onProgress?: (percent: number) => void
 ): Promise<CompressResult> {
   const originalSize = file.size;
 
   // Étape 1 : Charger le PDF
+  onProgress?.(10);
   const arrayBuffer = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer);
-  onProgress?.(20);
+  onProgress?.(30);
 
-  // Étape 2 : Supprimer les métadonnées
+  // Étape 2 : Supprimer les métadonnées pour réduire la taille
   pdfDoc.setTitle('');
   pdfDoc.setAuthor('');
   pdfDoc.setSubject('');
   pdfDoc.setKeywords([]);
   pdfDoc.setProducer('');
   pdfDoc.setCreator('');
-  onProgress?.(30);
+  onProgress?.(50);
 
-  // Étape 3 : Paramètres de compression (non utilisé directement pour les images ici)
-  const qualityMap = {
-    low: 0.8,
-    medium: 0.5,
-    high: 0.2,
-  };
-  const quality = qualityMap[level];
-
-  const pages = pdfDoc.getPages();
-  const totalPages = pages.length;
-
-  const newDoc = await PDFDocument.create();
-
-  // Étape 4 : Traiter chaque page
-  for (let i = 0; i < totalPages; i++) {
-    const [copiedPage] = await newDoc.copyPages(pdfDoc, [i]);
-    newDoc.addPage(copiedPage);
-    onProgress?.(30 + Math.round(((i + 1) / totalPages) * 55));
-  }
-  
-  onProgress?.(85);
-
-  // Étape 5 : Sauvegarder avec compression des flux d'objets
-  const pdfBytes = await newDoc.save({
+  // Étape 3 : Sauvegarder le document en utilisant les "object streams".
+  // C'est la principale source de compression dans pdf-lib.
+  // Cela regroupe plusieurs objets en un seul flux, réduisant la taille globale.
+  const pdfBytes = await pdfDoc.save({
     useObjectStreams: true,
   });
-
-  onProgress?.(100);
+  onProgress?.(90);
 
   const compressedSize = pdfBytes.byteLength;
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   const compressedPdfDataUri = URL.createObjectURL(blob);
+  onProgress?.(100);
 
   return {
     originalSize,

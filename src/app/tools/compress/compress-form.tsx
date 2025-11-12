@@ -167,7 +167,7 @@ export function CompressForm() {
           <div>
             <Label className="text-lg font-semibold">Niveau de compression</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              Une compression plus élevée réduit davantage la taille du fichier, mais peut affecter la qualité des images.
+              La compression supprime les données inutiles et optimise la structure du fichier.
             </p>
             <RadioGroup
               value={compressionLevel}
@@ -182,12 +182,12 @@ export function CompressForm() {
               <Label htmlFor="medium" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'medium' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="medium" id="medium" className="sr-only" />
                 <h3 className="text-lg font-semibold">Moyenne</h3>
-                <p className="text-sm text-muted-foreground text-center">Équilibre recommandé entre taille et qualité.</p>
+                <p className="text-sm text-muted-foreground text-center">Équilibre recommandé.</p>
               </Label>
                <Label htmlFor="high" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'high' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="high" id="high" className="sr-only" />
                 <h3 className="text-lg font-semibold">Élevée</h3>
-                <p className="text-sm text-muted-foreground text-center">Taille de fichier la plus petite, qualité d'image réduite.</p>
+                <p className="text-sm text-muted-foreground text-center">Taille de fichier la plus petite.</p>
               </Label>
             </RadioGroup>
           </div>
