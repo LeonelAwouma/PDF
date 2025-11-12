@@ -1,5 +1,9 @@
+
+// app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createWriter, createReader, PermissionFlag } from 'muhammara';
+
+// Chargement dynamique côté serveur uniquement
+const { createWriter, createReader, PermissionFlag } = require('muhammara');
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -17,6 +21,7 @@ export const POST = async (req: NextRequest) => {
     const inputBuffer = Buffer.from(await file.arrayBuffer());
     const outputChunks: Buffer[] = [];
 
+    // Stream personnalisé
     const outputStream = {
       write: (chunk: Buffer) => outputChunks.push(chunk),
       end: () => {},
@@ -34,19 +39,14 @@ export const POST = async (req: NextRequest) => {
     docContext.setPassword(password);
     docContext.setOwnerPassword(password);
 
-    // RESTRICTIONS avec PermissionFlag
+    // RESTRICTIONS
+    docContext.setPermissions(PermissionFlag.PrintLowResolution, true);
     docContext.setPermissions(
-      PermissionFlag.Print |           // Impression (basse qualité)
-      PermissionFlag.ModifyDocument |  // Modification
-      PermissionFlag.Copy |            // Copie
-      PermissionFlag.Annotate,         // Annotations
-      false // Désactive tout
-    );
-
-    // Autoriser seulement l’impression basse qualité
-    docContext.setPermissions(
-      PermissionFlag.PrintLowResolution,
-      true
+      PermissionFlag.ModifyDocument |
+      PermissionFlag.Copy |
+      PermissionFlag.Annotate |
+      PermissionFlag.PrintHighResolution,
+      false
     );
 
     writer.end();
