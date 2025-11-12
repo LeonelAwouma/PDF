@@ -1,10 +1,27 @@
-import { ToolPlaceholderPage } from '@/components/tool-placeholder-page';
+import { ProtectForm } from './protect-form';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
 
 export default function ProtectPage() {
   return (
-    <ToolPlaceholderPage
-      title="Protect PDF"
-      description="Add a password to your PDF files to keep them secure."
-    />
+    <div className="max-w-4xl mx-auto">
+      <Card className="w-full shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold">Protect PDF File</CardTitle>
+          <CardDescription className="text-md">
+            Add a password to your PDF to encrypt it and prevent unauthorized
+            access.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProtectForm />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
