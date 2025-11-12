@@ -51,5 +51,7 @@ const compressPdfFlow = ai.defineFlow(
 
 // The exported function is now a placeholder.
 export async function compressPdf(input: CompressPdfInput): Promise<CompressPdfOutput> {
+  // This function is not called by the new client-side implementation.
+  // It's a fallback in case it's referenced elsewhere.
   return compressPdfFlow(input);
 }

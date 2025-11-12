@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,15 @@ export function CompressForm() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Nettoie l'URL de l'objet blob lorsque le composant est démonté ou que le résultat change
+    return () => {
+      if (result?.compressedPdfDataUri) {
+        URL.revokeObjectURL(result.compressedPdfDataUri);
+      }
+    };
+  }, [result]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
@@ -54,9 +63,12 @@ export function CompressForm() {
       });
 
       setResult(compressResult);
+       const reduction = compressResult.originalSize > 0
+        ? Math.round(((compressResult.originalSize - compressResult.compressedSize) / compressResult.originalSize) * 100)
+        : 0;
       toast({
         title: 'Succès !',
-        description: 'Votre PDF compressé est prêt.',
+        description: `Votre PDF a été compressé. Réduction de ${reduction}%.`,
       });
     } catch (error: any) {
       console.error('Error compressing PDF:', error);
@@ -84,15 +96,6 @@ export function CompressForm() {
     medium: 'Moyenne',
     high: 'Élevée',
   };
-  
-  const handleDownload = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (result) {
-        // Cleanup the object URL after download
-        setTimeout(() => {
-            URL.revokeObjectURL(result.compressedPdfDataUri);
-        }, 100);
-    }
-  };
 
   if (result) {
     const reduction = result.originalSize > 0
@@ -115,7 +118,7 @@ export function CompressForm() {
             <Progress value={100 - reduction} className="h-2" />
           </div>
           <Button asChild size="lg" className="mt-4">
-            <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`} onClick={handleDownload}>
+            <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`}>
               <Download className="mr-2 h-5 w-5" />
               Télécharger le PDF compressé
             </a>
@@ -193,7 +196,7 @@ export function CompressForm() {
       )}
       
       {file && (
-        <Button type="submit" className="w-full md:w-auto" size="lg">
+        <Button type="submit" className="w-full md:w-auto" size="lg" disabled={isLoading}>
           <FileArchive className="mr-2 h-5 w-5" />
           Compresser le PDF
         </Button>

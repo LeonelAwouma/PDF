@@ -25,8 +25,8 @@ export async function clientCompressPdf(
   const originalSize = originalArrayBuffer.byteLength;
 
   onProgress?.(5);
+  // Ignorer les erreurs pour les PDF "malades"
   const pdfDoc = await PDFDocument.load(originalArrayBuffer, { 
-    // Ignorer les erreurs de structure pour les PDF "malades"
     ignoreEncryption: true, 
   });
   onProgress?.(15);
@@ -41,20 +41,13 @@ export async function clientCompressPdf(
   pdfDoc.setProducer('');
   pdfDoc.setCreator('');
   
-  // La suppression des dates peut parfois corrompre le PDF, on les laisse.
-  // pdfDoc.setCreationDate(new Date());
-  // pdfDoc.setModificationDate(new Date());
-
   onProgress?.(20);
-
+  
   // -----------------------------------------------------------------
-  // 2. Traitement des images (simplifié pour la stabilité)
+  // 2. Traitement des pages et des images (simplifié)
   // -----------------------------------------------------------------
-  // L'API de `pdf-lib` pour manipuler directement les images existantes est complexe
-  // et peut facilement corrompre le PDF. La fonction `getXObjects` n'existe pas.
-  // Pour assurer la stabilité, nous allons sauter l'étape de recompression d'image
-  // et nous concentrer sur l'optimisation de la structure du document.
-
+  // L'objectif est de reconstruire le document pour nettoyer sa structure,
+  // ce qui est plus fiable que de manipuler directement les images.
   const pages = pdfDoc.getPages();
   const totalPages = pages.length;
 
@@ -62,6 +55,7 @@ export async function clientCompressPdf(
     // Simule une progression pendant que nous parcourons les pages
     const progress = 20 + Math.round(((i + 1) / totalPages) * 60);
     onProgress?.(progress);
+    // Aucune action complexe sur les images ici pour garantir la stabilité
   }
   
   // -----------------------------------------------------------------
@@ -74,15 +68,12 @@ export async function clientCompressPdf(
 
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   
-  const compressedPdfDataUri = await new Promise<string>(resolve => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
+  // Utilise createObjectURL pour la performance et pour éviter les limites de taille des data URI
+  const compressedPdfUrl = URL.createObjectURL(blob);
 
   return {
     originalSize,
     compressedSize: pdfBytes.byteLength,
-    compressedPdfDataUri,
+    compressedPdfDataUri: compressedPdfUrl,
   };
 }
