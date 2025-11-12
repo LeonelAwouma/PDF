@@ -1,3 +1,5 @@
+
+// app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import qpdf from 'node-qpdf';
 import { writeFile, unlink, readFile } from 'fs/promises';
@@ -20,22 +22,32 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const bytes = await file.arrayBuffer();
+    // Chemins temporaires
     inputPath = join(tmpdir(), `input_${Date.now()}.pdf`);
     outputPath = join(tmpdir(), `output_${Date.now()}.pdf`);
 
+    // Écrire le fichier d'entrée
+    const bytes = await file.arrayBuffer();
     await writeFile(inputPath, Buffer.from(bytes));
 
+    // CORRECTION : utiliser `outputFile`, pas `output`
     await qpdf.encrypt(inputPath, {
-      output: outputPath,
+      outputFile: outputPath,  // CLEF CORRECTE
       keyLength: 256,
       password: password,
       restrictions: {
         print: 'low',
         modify: 'none',
         extract: 'n',
+        annotate: 'n',
       },
     });
+
+    // Vérifier que le fichier existe
+    const fs = await import('fs');
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('Fichier chiffré non généré');
+    }
 
     const encryptedBuffer = await readFile(outputPath);
     const blob = new Blob([encryptedBuffer], { type: 'application/pdf' });
@@ -44,7 +56,9 @@ export const POST = async (req: NextRequest) => {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_PROTEGE.pdf"`,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(
+          file.name.replace('.pdf', '') + '_PROTEGE.pdf'
+        )}"`,
       },
     });
   } catch (error: any) {
@@ -54,6 +68,7 @@ export const POST = async (req: NextRequest) => {
       { status: 500 }
     );
   } finally {
+    // Nettoyage
     if (inputPath) await unlink(inputPath).catch(() => {});
     if (outputPath) await unlink(outputPath).catch(() => {});
   }
