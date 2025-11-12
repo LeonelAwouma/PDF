@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, X, Download } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import { PDFDocument, PermissionFlag } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -79,7 +79,7 @@ export function ProtectForm() {
       const encryptedBytes = await pdfDoc.save({
         password: password,
         permissions: {
-          printing: PermissionFlag.LowQuality,
+          printing: 'lowResolution',
           modifying: false,
           copying: false,
           annotating: false,
