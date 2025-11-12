@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, X } from 'lucide-react';
+import { Loader2, Lock, X, Download } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import { PDFDocument } from 'pdf-lib';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -55,70 +56,39 @@ export function ProtectForm() {
     setPassword('');
     setConfirmPassword('');
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     if (!file || !password || password !== confirmPassword) {
-      toast({ title: 'Données invalides', variant: 'destructive' });
+      toast({
+        title: 'Données invalides',
+        description: 'Veuillez vérifier le fichier et que les mots de passe correspondent.',
+        variant: 'destructive',
+      });
       return;
     }
-  
+
     setIsLoading(true);
-  
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('password', password);
-  
+
     try {
-      console.log('Envoi vers /api/protect-pdf...', {
-        fileName: file.name,
-        fileSize: file.size,
-        passwordLength: password.length,
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+      // Chiffrer le document avec le mot de passe
+      await pdfDoc.encrypt(password, {
+        // Définir les permissions
+        printing: 'lowResolution',
+        modifying: false,
+        copying: false,
+        annotating: false,
       });
-  
-      const res = await fetch('/api/protect-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-  
-      console.log('Réponse reçue:', {
-        status: res.status,
-        ok: res.ok,
-        contentType: res.headers.get('content-type'),
-      });
-  
-      // Gestion des erreurs
-      if (!res.ok) {
-        let errorMessage = 'Erreur inconnue';
-        try {
-          const text = await res.text();
-          errorMessage = text.trim() || `HTTP ${res.status}`;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status} (réponse illisible)`;
-        }
-        console.error('Erreur API:', errorMessage);
-        throw new Error(errorMessage);
-      }
-  
-      // Vérifier le type
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/pdf')) {
-        const text = await res.text();
-        console.error('Mauvais type:', contentType, text);
-        throw new Error(`Type invalide: ${contentType}`);
-      }
-  
-      // Lire le blob
-      const blob = await res.blob();
-      if (blob.size === 0) {
-        throw new Error('Fichier vide reçu');
-      }
-  
-      console.log('PDF protégé reçu:', blob.size, 'octets');
-  
-      // Téléchargement direct
+
+      const encryptedBytes = await pdfDoc.save();
+      const blob = new Blob([encryptedBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
+
+      // Créer un lien de téléchargement et le cliquer
       const a = document.createElement('a');
       a.href = url;
       a.download = `${file.name.replace('.pdf', '')}_PROTEGE.pdf`;
@@ -126,19 +96,19 @@ export function ProtectForm() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-  
+
       toast({
         title: 'PDF Protégé !',
         description: 'Le fichier a été téléchargé avec succès.',
       });
-  
+
       reset();
-  
+
     } catch (error: any) {
       console.error('ERREUR CLIENT:', error);
       toast({
         title: 'Échec de la protection',
-        description: error.message || 'Une erreur est survenue.',
+        description: error.message || 'Une erreur est survenue lors du chiffrement.',
         variant: 'destructive',
       });
     } finally {
