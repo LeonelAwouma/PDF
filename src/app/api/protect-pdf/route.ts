@@ -1,15 +1,8 @@
-
 // app/api/protect-pdf/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import qpdf from 'node-qpdf';
-import { writeFile, unlink, readFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { PDFDocument } from 'pdf-lib';
 
 export const POST = async (req: NextRequest) => {
-  let inputPath: string | null = null;
-  let outputPath: string | null = null;
-
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -22,35 +15,32 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    // Chemins temporaires
-    inputPath = join(tmpdir(), `input_${Date.now()}.pdf`);
-    outputPath = join(tmpdir(), `output_${Date.now()}.pdf`);
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
 
-    // Écrire le fichier d'entrée
-    const bytes = await file.arrayBuffer();
-    await writeFile(inputPath, Buffer.from(bytes));
+    if (pdfDoc.isEncrypted) {
+      return NextResponse.json(
+        { error: 'Ce PDF est déjà protégé' },
+        { status: 400 }
+      );
+    }
 
-    // CORRECTION : utiliser `outputFile`, pas `output`
-    await qpdf.encrypt(inputPath, {
-      outputFile: outputPath,  // CLEF CORRECTE
-      keyLength: 256,
-      password: password,
-      restrictions: {
-        print: 'low',
-        modify: 'none',
-        extract: 'n',
-        annotate: 'n',
+    pdfDoc.encrypt({
+      userPassword: password,
+      ownerPassword: password, // Important pour le contrôle total
+      permissions: {
+        printing: 'lowResolution',
+        modifying: false,
+        copying: false,
+        annotating: false,
+        fillingForms: false,
+        contentAccessibility: false,
+        documentAssembly: false,
       },
     });
 
-    // Vérifier que le fichier existe
-    const fs = await import('fs');
-    if (!fs.existsSync(outputPath)) {
-      throw new Error('Fichier chiffré non généré');
-    }
-
-    const encryptedBuffer = await readFile(outputPath);
-    const blob = new Blob([encryptedBuffer], { type: 'application/pdf' });
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 
     return new NextResponse(blob, {
       status: 200,
@@ -64,12 +54,8 @@ export const POST = async (req: NextRequest) => {
   } catch (error: any) {
     console.error('API ERROR:', error);
     return NextResponse.json(
-      { error: 'Échec du chiffrement', details: error.message },
+      { error: 'Échec de la protection', details: error.message },
       { status: 500 }
     );
-  } finally {
-    // Nettoyage
-    if (inputPath) await unlink(inputPath).catch(() => {});
-    if (outputPath) await unlink(outputPath).catch(() => {});
   }
 };
