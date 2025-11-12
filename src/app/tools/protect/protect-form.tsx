@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock, X, Download } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PermissionFlag } from 'pdf-lib';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -73,18 +73,19 @@ export function ProtectForm() {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
 
-      // Chiffrer le document avec le mot de passe
-      await pdfDoc.encrypt(password, {
-        // Définir les permissions
-        printing: 'lowResolution',
-        modifying: false,
-        copying: false,
-        annotating: false,
+      // Chiffrer le document avec le mot de passe lors de la sauvegarde
+      const encryptedBytes = await pdfDoc.save({
+        password: password,
+        permissions: {
+          printing: PermissionFlag.LowQuality,
+          modifying: false,
+          copying: false,
+          annotating: false,
+        },
       });
 
-      const encryptedBytes = await pdfDoc.save();
       const blob = new Blob([encryptedBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
 
