@@ -6,40 +6,38 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { compressPdf } from '@/ai/flows/compress-pdf';
 import { Loader2, Download, FileCheck2, UploadCloud, FileArchive } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import type { CompressPdfOutput } from '@/ai/flows/compress-pdf';
 import { Progress } from '@/components/ui/progress';
+import { clientCompressPdf, type CompressionLevel } from '@/lib/clientCompressPdf';
+
+type Result = {
+  originalSize: number;
+  compressedSize: number;
+  compressedPdfDataUri: string;
+};
 
 export function CompressForm() {
   const [file, setFile] = useState<File | null>(null);
-  const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('medium');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<CompressPdfOutput | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<Result | null>(null);
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
     setFile(selectedFile);
     setResult(null);
-  };
-
-  const handleFileRead = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    setProgress(0);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!file) {
       toast({
-        title: 'No file selected',
-        description: 'Please upload a PDF file to compress.',
+        title: 'Aucun fichier sélectionné',
+        description: 'Veuillez télécharger un fichier PDF à compresser.',
         variant: 'destructive',
       });
       return;
@@ -47,20 +45,24 @@ export function CompressForm() {
 
     setIsLoading(true);
     setResult(null);
+    setProgress(0);
 
     try {
-      const pdfDataUri = await handleFileRead(file);
-      const compressResult = await compressPdf({ pdfDataUri, compressionLevel });
+      const compressResult = await clientCompressPdf(file, {
+        level: compressionLevel,
+        onProgress: (p) => setProgress(p),
+      });
+
       setResult(compressResult);
       toast({
-        title: 'Success!',
-        description: 'Your compressed PDF is ready for download.',
+        title: 'Succès !',
+        description: 'Votre PDF compressé est prêt.',
       });
     } catch (error: any) {
       console.error('Error compressing PDF:', error);
       toast({
-        title: 'Compression Failed',
-        description: error.message || 'An error occurred while compressing the PDF.',
+        title: 'Erreur de compression',
+        description: error.message || 'Une erreur est survenue lors de la compression du PDF.',
         variant: 'destructive',
       });
     } finally {
@@ -76,11 +78,20 @@ export function CompressForm() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
-  
+
   const compressionLevelText = {
     low: 'Basse',
     medium: 'Moyenne',
     high: 'Élevée',
+  };
+  
+  const handleDownload = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (result) {
+        // Cleanup the object URL after download
+        setTimeout(() => {
+            URL.revokeObjectURL(result.compressedPdfDataUri);
+        }, 100);
+    }
   };
 
   if (result) {
@@ -104,14 +115,28 @@ export function CompressForm() {
             <Progress value={100 - reduction} className="h-2" />
           </div>
           <Button asChild size="lg" className="mt-4">
-            <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`}>
+            <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`} onClick={handleDownload}>
               <Download className="mr-2 h-5 w-5" />
               Télécharger le PDF compressé
             </a>
           </Button>
+           <Button variant="outline" className="mt-4 ml-4" onClick={() => { setFile(null); setResult(null); }}>
+              Compresser un autre fichier
+           </Button>
         </CardContent>
       </Card>
     );
+  }
+
+  if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg font-medium mt-4">Compression en cours...</p>
+            <Progress value={progress} className="w-full max-w-md mt-4" />
+            <p className="text-muted-foreground text-sm mt-2">{progress}%</p>
+        </div>
+      );
   }
 
   return (
@@ -124,7 +149,7 @@ export function CompressForm() {
               <p className="mb-2 text-xl font-bold text-foreground">Sélectionnez un fichier PDF à compresser</p>
               <p className="text-muted-foreground">ou glissez-déposez un fichier ici</p>
             </div>
-            <Input id="pdf-file" type="file" accept=".pdf" onChange={handleFileChange} className="hidden" disabled={isLoading} />
+            <Input id="pdf-file" type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
           </label>
         </div>
       ) : (
@@ -140,18 +165,17 @@ export function CompressForm() {
           <div>
             <Label className="text-lg font-semibold">Niveau de compression</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              Une compression plus élevée réduit davantage la taille du fichier, mais peut affecter la qualité.
+              Une compression plus élevée réduit davantage la taille du fichier, mais peut affecter la qualité des images.
             </p>
             <RadioGroup
               value={compressionLevel}
-              onValueChange={(value) => setCompressionLevel(value as 'low' | 'medium' | 'high')}
+              onValueChange={(value) => setCompressionLevel(value as CompressionLevel)}
               className="grid grid-cols-1 md:grid-cols-3 gap-4"
-              disabled={isLoading}
             >
               <Label htmlFor="low" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'low' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="low" id="low" className="sr-only" />
                 <h3 className="text-lg font-semibold">Basse</h3>
-                <p className="text-sm text-muted-foreground text-center">Bonne qualité, compression basique.</p>
+                <p className="text-sm text-muted-foreground text-center">Bonne qualité, compression légère.</p>
               </Label>
               <Label htmlFor="medium" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'medium' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="medium" id="medium" className="sr-only" />
@@ -161,26 +185,19 @@ export function CompressForm() {
                <Label htmlFor="high" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'high' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="high" id="high" className="sr-only" />
                 <h3 className="text-lg font-semibold">Élevée</h3>
-                <p className="text-sm text-muted-foreground text-center">Taille de fichier la plus petite, peut réduire la qualité.</p>
+                <p className="text-sm text-muted-foreground text-center">Taille de fichier la plus petite, qualité d'image réduite.</p>
               </Label>
             </RadioGroup>
           </div>
         </div>
       )}
-
-      <Button type="submit" disabled={isLoading || !file} className="w-full md:w-auto" size="lg">
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Compression...
-          </>
-        ) : (
-          <>
-            <FileArchive className="mr-2 h-5 w-5" />
-            Compresser le PDF
-          </>
-        )}
-      </Button>
+      
+      {file && (
+        <Button type="submit" className="w-full md:w-auto" size="lg">
+          <FileArchive className="mr-2 h-5 w-5" />
+          Compresser le PDF
+        </Button>
+      )}
     </form>
   );
 }
