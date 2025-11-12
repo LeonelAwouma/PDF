@@ -76,6 +76,12 @@ export function CompressForm() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
+  
+  const compressionLevelText = {
+    low: 'Basse',
+    medium: 'Moyenne',
+    high: 'Élevée',
+  };
 
   if (result) {
     const reduction = result.originalSize > 0
@@ -86,21 +92,21 @@ export function CompressForm() {
       <Card className="shadow-lg">
         <CardContent className="p-6 text-center">
           <FileArchive className="w-16 h-16 mx-auto text-primary mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Compression Complete!</h2>
+          <h2 className="text-2xl font-bold mb-2">Compression terminée !</h2>
           <p className="text-muted-foreground mb-6">
-            Your file size has been reduced by {reduction}%.
+             Votre fichier a été réduit de {reduction}% avec une compression {compressionLevelText[compressionLevel].toLowerCase()}.
           </p>
           <div className="w-full max-w-md mx-auto my-4 text-left">
             <div className="flex justify-between text-sm text-muted-foreground mb-1">
                 <span>Original: {formatBytes(result.originalSize)}</span>
-                <span>Compressed: {formatBytes(result.compressedSize)}</span>
+                <span>Compressé: {formatBytes(result.compressedSize)}</span>
             </div>
             <Progress value={100 - reduction} className="h-2" />
           </div>
           <Button asChild size="lg" className="mt-4">
             <a href={result.compressedPdfDataUri} download={`${file?.name.replace('.pdf', '')}_compressed.pdf`}>
               <Download className="mr-2 h-5 w-5" />
-              Download Compressed PDF
+              Télécharger le PDF compressé
             </a>
           </Button>
         </CardContent>
@@ -115,8 +121,8 @@ export function CompressForm() {
           <label htmlFor="pdf-file" className="flex flex-col items-center justify-center w-full h-80 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors">
             <div className="flex flex-col items-center justify-center pt-5 pb-6">
               <UploadCloud className="w-10 h-10 mb-4 text-primary" />
-              <p className="mb-2 text-xl font-bold text-foreground">Select a PDF file to compress</p>
-              <p className="text-muted-foreground">or drag and drop a file here</p>
+              <p className="mb-2 text-xl font-bold text-foreground">Sélectionnez un fichier PDF à compresser</p>
+              <p className="text-muted-foreground">ou glissez-déposez un fichier ici</p>
             </div>
             <Input id="pdf-file" type="file" accept=".pdf" onChange={handleFileChange} className="hidden" disabled={isLoading} />
           </label>
@@ -132,9 +138,9 @@ export function CompressForm() {
           </div>
 
           <div>
-            <Label className="text-lg font-semibold">Compression Level</Label>
+            <Label className="text-lg font-semibold">Niveau de compression</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              Higher compression reduces file size more, but may affect quality.
+              Une compression plus élevée réduit davantage la taille du fichier, mais peut affecter la qualité.
             </p>
             <RadioGroup
               value={compressionLevel}
@@ -144,18 +150,18 @@ export function CompressForm() {
             >
               <Label htmlFor="low" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'low' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="low" id="low" className="sr-only" />
-                <h3 className="text-lg font-semibold">Low</h3>
-                <p className="text-sm text-muted-foreground text-center">Good quality, basic compression.</p>
+                <h3 className="text-lg font-semibold">Basse</h3>
+                <p className="text-sm text-muted-foreground text-center">Bonne qualité, compression basique.</p>
               </Label>
               <Label htmlFor="medium" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'medium' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="medium" id="medium" className="sr-only" />
-                <h3 className="text-lg font-semibold">Medium</h3>
-                <p className="text-sm text-muted-foreground text-center">Recommended balance of size and quality.</p>
+                <h3 className="text-lg font-semibold">Moyenne</h3>
+                <p className="text-sm text-muted-foreground text-center">Équilibre recommandé entre taille et qualité.</p>
               </Label>
                <Label htmlFor="high" className={`border rounded-md p-4 flex flex-col items-center justify-center cursor-pointer ${compressionLevel === 'high' ? 'border-primary ring-2 ring-primary' : 'border-input'}`}>
                 <RadioGroupItem value="high" id="high" className="sr-only" />
-                <h3 className="text-lg font-semibold">High</h3>
-                <p className="text-sm text-muted-foreground text-center">Smallest file size, may reduce quality.</p>
+                <h3 className="text-lg font-semibold">Élevée</h3>
+                <p className="text-sm text-muted-foreground text-center">Taille de fichier la plus petite, peut réduire la qualité.</p>
               </Label>
             </RadioGroup>
           </div>
@@ -166,12 +172,12 @@ export function CompressForm() {
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Compressing...
+            Compression...
           </>
         ) : (
           <>
             <FileArchive className="mr-2 h-5 w-5" />
-            Compress PDF
+            Compresser le PDF
           </>
         )}
       </Button>
